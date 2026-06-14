@@ -749,6 +749,13 @@ local function startSpaceInvaderLoop()
             -- 1) รีโรล
             if needReroll or not questCheck() then
                 needReroll = false
+
+                -- รอให้ UI quest หายก่อน
+                local waitTime = tick()
+                while questCheck() and tick() - waitTime < 10 do
+                    task.wait(0.3)
+                end
+
                 isRerolling = true
                 for _, def in ipairs(skillDef) do stopSkill(def) end
 
@@ -838,7 +845,19 @@ local function startSpaceInvaderLoop()
             end
 
             -- บอสตายแล้ว บังคับรีโรลรอบหน้า
+            -- บอสตายแล้ว บังคับรีโรลรอบหน้า
             needReroll = true
+
+            -- รอให้ตัวเรา respawn ก่อน
+            local respawnTime = tick()
+            while tick() - respawnTime < 5 do
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local myHum = char and char:FindFirstChildOfClass("Humanoid")
+                if hrp and myHum and myHum.Health > 0 then break end
+                task.wait(0.3)
+            end
+
             task.wait(0.2)
         end
     end)
