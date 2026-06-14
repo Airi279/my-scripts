@@ -50,7 +50,6 @@ local DEFAULT = {
     autoMegumin = false,
     autoGaspa = false,
     autoSpaceInvader = false,
-    lowGraphics = false,
 }
 
 local cfg = {}
@@ -175,6 +174,7 @@ local function questCheck()
         if v:IsA("ImageLabel")
         and v.Parent.Name == "Icon"
         and v.Parent.Parent.Name == "Task" then
+
             if cfg.wantSpaceChest and v.Image == CHEST_IMAGES.Secret then
                 local num = v.Parent:FindFirstChild("Number")
                 local amount = num and tonumber(num.Text) or 0
@@ -182,6 +182,7 @@ local function questCheck()
                     return true
                 end
             end
+
             if cfg.wantHoly and v.Image == CHEST_IMAGES.Holy then
                 local num = v.Parent:FindFirstChild("Number")
                 local amount = num and tonumber(num.Text) or 0
@@ -189,9 +190,38 @@ local function questCheck()
                     return true
                 end
             end
+
         end
     end
     return false
+end
+
+local function pressE()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local nearest, dist = nil, math.huge
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and v.Enabled then
+            local ok, pivot = pcall(function() return v.Parent:GetPivot() end)
+            if ok and pivot then
+                local d = (hrp.Position - pivot.Position).Magnitude
+                if d < 100 and d < dist then
+                    dist = d
+                    nearest = v
+                end
+            end
+        end
+    end
+
+    if nearest then
+        fireproximityprompt(nearest)
+    else
+        VIM:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.05)
+        VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end
 end
 
 local function getNearestRerollNPC()
@@ -204,6 +234,7 @@ local function getNearestRerollNPC()
     if not bossTask then return nil end
     local nearest, dist = nil, math.huge
     for _, npc in ipairs(bossTask:GetChildren()) do
+        -- ข้าม PackageLink
         if npc:IsA("Model") then
             local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head")
             if root then
@@ -226,14 +257,13 @@ local function doReroll()
     if not hrp then return false end
 
     local npc
+
     if cfg.wantSpaceChest then
-        repeat
-            task.wait(1)
-            npc = workspace:FindFirstChild("240012", true)
-        until npc
-    
-        print("[AIRI] เจอ NPC 240012")
-    
+        npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
+        if not npc then
+            warn("[AIRI] ไม่เจอ NPC 240012")
+            return false
+        end
     elseif cfg.wantHoly then
         npc = getNearestRerollNPC()
         if not npc then
@@ -242,43 +272,21 @@ local function doReroll()
         end
     end
 
-    -- หา ProximityPrompt ใต้ NPC (ไม่จำกัดระยะ)
-    local prompt = nil
     if npc then
-        for _, v in ipairs(npc:GetDescendants()) do
-            if v:IsA("ProximityPrompt") then
-                prompt = v
-                break
-            end
+        local ok, pivot = pcall(function() return npc:GetPivot() end)
+        if not ok or not pivot then
+            warn("[AIRI] เอา pivot NPC ไม่ได้")
+            return false
         end
-    end
-
-    if not prompt then
-        warn("[AIRI] ไม่เจอ ProximityPrompt ใน NPC เลย")
-        return false
-    end
-
-    -- วาปไปที่ part ของ prompt ตรงๆ
-    local promptPart = prompt.Parent
-    local promptPos = nil
-    if promptPart then
-        if promptPart:IsA("BasePart") then
-            promptPos = promptPart.Position
-        elseif promptPart:IsA("Attachment") then
-            promptPos = promptPart.WorldPosition
-        end
-    end
-
-    if promptPos then
-        hrp.CFrame = CFrame.new(promptPos + Vector3.new(0, 3, 0))
+        local pos = pivot.Position
+        hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
         hrp.AssemblyLinearVelocity = Vector3.zero
     end
 
     task.wait(cfg.rerollWait or 0.6)
-
     local attempts = 0
     while not questCheck() do
-        fireproximityprompt(prompt)
+        pressE()
         attempts = attempts + 1
         task.wait(cfg.rerollWait or 0.6)
         if attempts > 300 then
@@ -289,6 +297,7 @@ local function doReroll()
     print("[AIRI] ได้กล่องแล้ว! (" .. attempts .. " ครั้ง)")
     return true
 end
+
 -- =====================================================
 -- MOB HELPERS
 -- =====================================================
@@ -740,34 +749,16 @@ local function startSpaceInvaderLoop()
             -- 1) รีโรล
             if needReroll or not questCheck() then
                 needReroll = false
-
-                -- รอให้ UI quest หายก่อน
-                local waitTime = tick()
-                while questCheck() and tick() - waitTime < 10 do
-                    task.wait(0.3)
-                end
-
                 isRerolling = true
                 for _, def in ipairs(skillDef) do stopSkill(def) end
 
-                local npc
-                local start = tick()
-                
-                repeat
-                    task.wait(1)
-                    npc = workspace:FindFirstChild("240012", true)
-                
-                    if tick() - start > 60 then
-                        warn("[AIRI] หา NPC 240012 ไม่เจอเกิน 60 วิ")
-                        break
-                    end
-                until npc
-                
+                local npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
                 if not npc then
+                    warn("[AIRI] ไม่เจอ NPC 240012")
+                    isRerolling = false
+                    task.wait(1)
                     continue
                 end
-                
-                print("[AIRI] เจอ NPC 240012")
 
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -787,9 +778,11 @@ local function startSpaceInvaderLoop()
                     end
                 end
 
+                task.wait(cfg.rerollWait or 0.6)
+
                 local attempts = 0
                 while not questCheck() do
-                    if prompt then fireproximityprompt(prompt) else warn("[AIRI] ไม่เจอ prompt") end
+                    if prompt then fireproximityprompt(prompt) else pressE() end
                     attempts = attempts + 1
                     task.wait(cfg.rerollWait or 0.6)
                     if attempts > 300 then
@@ -846,15 +839,6 @@ local function startSpaceInvaderLoop()
 
             -- บอสตายแล้ว บังคับรีโรลรอบหน้า
             needReroll = true
-            local respawnTime = tick()
-            while tick() - respawnTime < 5 do
-                local char = LocalPlayer.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                local myHum = char and char:FindFirstChildOfClass("Humanoid")
-                if hrp and myHum and myHum.Health > 0 then break end
-                task.wait(0.3)
-            end
-
             task.wait(0.2)
         end
     end)
@@ -863,77 +847,6 @@ local function stopSpaceInvader()
     autoSpaceInvader = false
     cfg.autoSpaceInvader = false; save()
     killThread("spaceInvader")
-end
-
-local function lowGraphics()
-    local Lighting = game:GetService("Lighting")
-
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
-    Lighting.Brightness = 0
-    Lighting.ClockTime = 14
-
-    for _, v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
-            v:Destroy()
-        end
-    end
-
-    settings().Rendering.QualityLevel = 1
-
-    local count = 0
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("PostEffect") or v:IsA("ParticleEmitter")
-        or v:IsA("Trail") or v:IsA("Beam")
-        or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")
-        or v:IsA("Decal") or v:IsA("Texture")
-        or v:IsA("SpecialMesh") or v:IsA("SelectionBox")
-        or v:IsA("Sound") then
-            v:Destroy()
-        elseif v:IsA("BasePart") then
-            v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false
-        elseif v:IsA("Light") then
-            v.Shadows = false
-            v.Enabled = false
-        end
-        count = count + 1
-        if count % 100 == 0 then task.wait() end
-    end
-
-    print("[AIRI] lowGraphics เสร็จ")
-end
-
--- detect ของใหม่แล้วลบทันที
-local graphicsConnection = nil
-
-local function startGraphicsWatcher()
-    if graphicsConnection then return end
-    graphicsConnection = workspace.DescendantAdded:Connect(function(v)
-        if not cfg.lowGraphics then return end
-        if v:IsA("PostEffect") or v:IsA("ParticleEmitter")
-        or v:IsA("Trail") or v:IsA("Beam")
-        or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")
-        or v:IsA("Decal") or v:IsA("Texture")
-        or v:IsA("SelectionBox") or v:IsA("Sound") then
-            v:Destroy()
-        elseif v:IsA("BasePart") then
-            v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false
-        elseif v:IsA("Light") then
-            v.Shadows = false
-            v.Enabled = false
-        end
-    end)
-end
-
-if cfg.lowGraphics then
-    task.spawn(function()
-        task.wait(20)
-        lowGraphics()
-        startGraphicsWatcher()
-        print("[AIRI] Low Graphics ทำงานหลังรอ 20 วิ")
-    end)
 end
 
 -- =====================================================
@@ -1875,23 +1788,6 @@ AutoGaspaRef = RaidTab:Toggle({
         cfg.autoGaspa = v; save()
         if v then autoGaspa = true; startGaspaLoop()
         else stopGaspa() end
-    end
-})
-
-local GraphicsTab = Window:Tab({ Title = "Graphics", Icon = "monitor" })
-
-GraphicsTab:Toggle({
-    Title = "Low Graphics",
-    Desc  = "ลบเอฟเฟค/เท็กเจอ/แสง เพื่อลดแลค",
-    Icon  = "zap-off",
-    Type  = "Checkbox",
-    Value = cfg.lowGraphics or false,
-    Callback = function(v)
-        cfg.lowGraphics = v; save()
-        if v then
-            task.spawn(lowGraphics)
-            startGraphicsWatcher()
-        end
     end
 })
 
