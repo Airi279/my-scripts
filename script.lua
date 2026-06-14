@@ -749,7 +749,7 @@ local function startSpaceInvaderLoop()
                 isRerolling = true
                 for _, def in ipairs(skillDef) do stopSkill(def) end
 
-                local npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
+                local npc = workspace:FindFirstChild("240012", true)
                 if not npc then
                     warn("[AIRI] ไม่เจอ NPC 240012")
                     isRerolling = false
