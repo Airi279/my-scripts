@@ -749,7 +749,7 @@ local function startSpaceInvaderLoop()
                 isRerolling = true
                 for _, def in ipairs(skillDef) do stopSkill(def) end
 
-                local npc = workspace:FindFirstChild("240012", true)
+                local npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
                 if not npc then
                     warn("[AIRI] ไม่เจอ NPC 240012")
                     isRerolling = false
@@ -916,9 +916,12 @@ local function startGraphicsWatcher()
 end
 
 if cfg.lowGraphics then
-    task.wait(3)
-    task.spawn(lowGraphics)
-    startGraphicsWatcher()
+    task.spawn(function()
+        task.wait(20)
+        lowGraphics()
+        startGraphicsWatcher()
+        print("[AIRI] Low Graphics ทำงานหลังรอ 20 วิ")
+    end)
 end
 
 -- =====================================================
