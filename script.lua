@@ -226,13 +226,14 @@ local function doReroll()
     if not hrp then return false end
 
     local npc
-
     if cfg.wantSpaceChest then
-        npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
-        if not npc then
-            warn("[AIRI] ไม่เจอ NPC 240012")
-            return false
-        end
+        repeat
+            task.wait(1)
+            npc = workspace:FindFirstChild("240012", true)
+        until npc
+    
+        print("[AIRI] เจอ NPC 240012")
+    
     elseif cfg.wantHoly then
         npc = getNearestRerollNPC()
         if not npc then
@@ -749,13 +750,24 @@ local function startSpaceInvaderLoop()
                 isRerolling = true
                 for _, def in ipairs(skillDef) do stopSkill(def) end
 
-                local npc = workspace.World.NPC.BossTask:FindFirstChild("240012")
-                if not npc then
-                    warn("[AIRI] ไม่เจอ NPC 240012")
-                    isRerolling = false
+                local npc
+                local start = tick()
+                
+                repeat
                     task.wait(1)
+                    npc = workspace:FindFirstChild("240012", true)
+                
+                    if tick() - start > 60 then
+                        warn("[AIRI] หา NPC 240012 ไม่เจอเกิน 60 วิ")
+                        break
+                    end
+                until npc
+                
+                if not npc then
                     continue
                 end
+                
+                print("[AIRI] เจอ NPC 240012")
 
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
