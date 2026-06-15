@@ -50,6 +50,7 @@ local DEFAULT = {
     autoMegumin = false,
     autoGaspa = false,
     autoSpaceInvader = false,
+    lowGraphics = false,
 }
 
 local cfg = {}
@@ -75,6 +76,70 @@ load()
 task.spawn(function()
     while true do task.wait(10); save() end
 end)
+
+
+local function lowGraphics()
+local Lighting = game:GetService("Lighting")
+
+Lighting.GlobalShadows = false  
+Lighting.FogEnd = 9e9  
+Lighting.Brightness = 0  
+Lighting.ClockTime = 14  
+
+for _, v in ipairs(Lighting:GetChildren()) do  
+    if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then  
+        v:Destroy()  
+    end  
+end  
+
+settings().Rendering.QualityLevel = 1  
+
+local count = 0  
+for _, v in ipairs(workspace:GetDescendants()) do  
+    if v:IsA("PostEffect") or v:IsA("ParticleEmitter")  
+    or v:IsA("Trail") or v:IsA("Beam")  
+    or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")  
+    or v:IsA("Decal") or v:IsA("Texture")  
+    or v:IsA("SpecialMesh") or v:IsA("SelectionBox")  
+    or v:IsA("Sound") then  
+        v:Destroy()  
+    elseif v:IsA("BasePart") then  
+        v.Material = Enum.Material.SmoothPlastic  
+        v.CastShadow = false  
+    elseif v:IsA("Light") then  
+        v.Shadows = false  
+        v.Enabled = false  
+    end  
+    count = count + 1  
+    if count % 100 == 0 then task.wait() end  
+end  
+
+print("[AIRI] lowGraphics เสร็จ")
+
+end
+
+-- detect ของใหม่แล้วลบทันที
+local graphicsConnection = nil
+
+local function startGraphicsWatcher()
+if graphicsConnection then return end
+graphicsConnection = workspace.DescendantAdded:Connect(function(v)
+if not cfg.lowGraphics then return end
+if v:IsA("PostEffect") or v:IsA("ParticleEmitter")
+or v:IsA("Trail") or v:IsA("Beam")
+or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")
+or v:IsA("Decal") or v:IsA("Texture")
+or v:IsA("SelectionBox") or v:IsA("Sound") then
+v:Destroy()
+elseif v:IsA("BasePart") then
+v.Material = Enum.Material.SmoothPlastic
+v.CastShadow = false
+elseif v:IsA("Light") then
+v.Shadows = false
+v.Enabled = false
+end
+end)
+end
 
 -- =====================================================
 -- TELEPORT
@@ -1810,6 +1875,42 @@ AutoGaspaRef = RaidTab:Toggle({
     end
 })
 
+-- =====================================================
+-- LOW GRAPHICS TAB
+-- =====================================================
+
+local LowTab = Window:Tab({
+    Title = "Low Graphics",
+    Icon = "zap"
+})
+
+LowTab:Toggle({
+    Title = "Low Graphics",
+    Desc = "ลดเอฟเฟกต์ เพิ่ม FPS",
+    Icon = "gauge",
+    Type = "Checkbox",
+    Value = cfg.lowGraphics,
+
+    Callback = function(v)
+        cfg.lowGraphics = v
+        save()
+
+        if v then
+            task.spawn(function()
+                print("[AIRI] รอเกมโหลด 60 วิ...")
+                task.wait(60)
+
+                if cfg.lowGraphics then
+                    lowGraphics()
+                    startGraphicsWatcher()
+                    print("[AIRI] Low Graphics ON หลังโหลด 60 วิ")
+                end
+            end)
+        else
+            print("[AIRI] Low Graphics OFF (ต้องรีเกมเพื่อคืนกราฟิก)")
+        end
+    end
+})
 -- =====================================================
 -- INIT
 -- =====================================================
